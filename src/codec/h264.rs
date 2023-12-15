@@ -682,7 +682,8 @@ impl Depacketizer {
         for nal in &self.nals {
             let next_piece_idx = crate::to_usize(nal.next_piece_idx);
             let nal_pieces = &self.pieces[piece_idx..next_piece_idx];
-            data.extend_from_slice(&nal.len.to_be_bytes()[..]);
+            // data.extend_from_slice(&nal.len.to_be_bytes()[..]); // TODO: dynamic way to change between AVCC and Annex B
+            data.extend_from_slice(&[0, 0, 0, 1]); // Annex B
             data.push(nal.hdr.into());
             let mut actual_len = 1;
             for piece in nal_pieces {
