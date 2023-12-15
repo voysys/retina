@@ -15,6 +15,13 @@ repository = "https://github.com/scottlamb/retina"
 include = ["src/**/*", "benches", "Cargo.toml"]
 rust-version = "1.64"
 
+[features]
+tracy = [
+    "tracy-client",
+    "tracy-client/use-external-tracy-library",
+    "tracy-client/ondemand",
+]
+
 [dependencies]
 base64 = "0.13.0"
 bitstream-io = "1.1"
@@ -37,6 +44,8 @@ time = "0.1.43"
 tokio = { version = "1.11.0", features = ["macros", "net", "rt", "time"] }
 tokio-util = { version = "0.7.3", features = ["codec"] }
 url = "2.2.1"
+
+tracy-client = { git = "https://github.com/voysys/rust_tracy_client", branch = "tracy-0.7.8_tracy-client_0.12.7_and_voysys_fixes", optional = true, features = ["enable"] }
 
 [dev-dependencies]
 criterion = { version = "0.4.0", features = ["async_tokio"] }
