@@ -19,7 +19,7 @@
 
 use bytes::{Buf, Bytes};
 
-use crate::{PacketContext, Timestamp, rtp::ReceivedPacket};
+use crate::{profile_zone, rtp::ReceivedPacket, PacketContext, Timestamp};
 
 use super::{VideoFrame, VideoParameters};
 
@@ -196,20 +196,22 @@ fn make_headers(
     mut qtable: Bytes,
     precision: u8,
     dri: u16,
-) -> Result<(), String> {
+) -> Result<(), &'static str> {
+    profile_zone!("make_headers");
+
     p.push(0xff);
     p.push(0xd8); // SOI
 
     let size = if (precision & 1) > 0 { 128 } else { 64 };
     if qtable.remaining() < size {
-        return Err("Qtable too small".to_string());
+        return Err("Qtable too small");
     }
     make_quant_header(p, &qtable[..size], 0);
     qtable.advance(size);
 
     let size = if (precision & 2) > 0 { 128 } else { 64 };
     if qtable.remaining() < size {
-        return Err("Qtable too small".to_string());
+        return Err("Qtable too small");
     }
     make_quant_header(p, &qtable[..size], 1);
     qtable.advance(size);
@@ -320,6 +322,8 @@ impl Depacketizer {
         if pkt.payload().len() < 8 {
             return Err("Too short RTP/JPEG packet".to_string());
         }
+
+        profile_zone!("Push");
 
         let ctx = *pkt.ctx();
         let loss = pkt.loss();
@@ -446,8 +450,8 @@ impl Depacketizer {
                         start_ctx: ctx,
                         timestamp,
                         parameters: Some(VideoParameters {
-                            pixel_dimensions: (width, height),
-                            rfc6381_codec: "mp4v.6C".to_owned(),
+                            pixel_dimensions: (width as u32, height as u32),
+                            rfc6381_codec: String::new(), // RFC 6381 is not applicable to MJPEG
                             pixel_aspect_ratio: None,
                             frame_rate: None,
                             extra_data: Bytes::new(),
@@ -472,9 +476,15 @@ impl Depacketizer {
             return Ok(());
         }
 
-        self.data.extend_from_slice(&payload);
+        {
+            profile_zone!("Extend");
+
+            self.data.extend_from_slice(&payload);
+        }
 
         if last_packet_in_frame {
+            profile_zone!("Last packet");
+
             if self.data.len() < 2 {
                 return Ok(());
             }
@@ -482,22 +492,28 @@ impl Depacketizer {
             // Adding EOI marker if necessary.
             let end = &self.data[self.data.len() - 2..];
             if end[0] != 0xff && end[1] != 0xd9 {
+                profile_zone!("Add EOI");
+
                 self.data.extend_from_slice(&[0xff, 0xd9]);
             }
 
             let has_new_parameters = self.parameters != metadata.parameters;
 
-            self.pending = Some(VideoFrame {
-                start_ctx: metadata.start_ctx,
-                end_ctx: ctx,
-                has_new_parameters,
-                loss,
-                timestamp,
-                stream_id,
-                is_random_access_point: true,
-                is_disposable: true,
-                data: std::mem::take(&mut self.data),
-            });
+            {
+                self.pending = Some(VideoFrame {
+                    start_ctx: metadata.start_ctx,
+                    end_ctx: ctx,
+                    has_new_parameters,
+                    loss,
+                    timestamp,
+                    stream_id,
+                    is_random_access_point: false,
+                    is_disposable: true,
+                    data: self.data.clone(),
+                });
+
+                self.data.clear();
+            }
 
             let metadata = self.metadata.take();
             if let Some(metadata) = metadata

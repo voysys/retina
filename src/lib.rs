@@ -25,6 +25,8 @@ mod hex;
 pub mod rtcp;
 pub mod rtp;
 
+mod profile_macros;
+
 #[cfg(test)]
 mod testutil;
 
