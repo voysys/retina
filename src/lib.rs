@@ -471,9 +471,19 @@ impl UdpPair {
         for i in 0..MAX_TRIES {
             let rtp_port = rng.gen_range(ALLOWED_RTP_RANGE) & !0b1;
             debug_assert!(ALLOWED_RTP_RANGE.contains(&rtp_port));
+
             let rtp_addr = SocketAddr::new(ip_addr, rtp_port);
-            let rtp_socket = match UdpSocket::bind(rtp_addr) {
-                Ok(s) => s,
+            let sock_addr = socket2::SockAddr::from(rtp_addr);
+            let domain = match rtp_addr {
+                SocketAddr::V4(_) => socket2::Domain::IPV4,
+                SocketAddr::V6(_) => socket2::Domain::IPV6,
+            };
+            let socket =
+                socket2::Socket::new(domain, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))?;
+            socket.set_recv_buffer_size(8 * 1024 * 1024)?;
+
+            let rtp_socket = match socket.bind(&sock_addr) {
+                Ok(_) => UdpSocket::from(socket),
                 Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
                     trace!(
                         "Try {}/{}: unable to bind RTP addr {:?}",
@@ -485,9 +495,20 @@ impl UdpPair {
                 }
                 Err(e) => return Err(e),
             };
+
             let rtcp_addr = SocketAddr::new(ip_addr, rtp_port + 1);
-            let rtcp_socket = match UdpSocket::bind(rtcp_addr) {
-                Ok(s) => s,
+
+            let sock_addr = socket2::SockAddr::from(rtcp_addr);
+            let domain = match rtp_addr {
+                SocketAddr::V4(_) => socket2::Domain::IPV4,
+                SocketAddr::V6(_) => socket2::Domain::IPV6,
+            };
+            let socket =
+                socket2::Socket::new(domain, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))?;
+            socket.set_recv_buffer_size(2 * 1024 * 1024)?;
+
+            let rtcp_socket = match socket.bind(&sock_addr) {
+                Ok(_) => UdpSocket::from(socket),
                 Err(e) if e.kind() == std::io::ErrorKind::AddrInUse => {
                     trace!(
                         "Try {}/{}: unable to bind RTCP addr {:?}",
