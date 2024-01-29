@@ -482,7 +482,7 @@ impl UdpPair {
             };
             let socket =
                 socket2::Socket::new(domain, socket2::Type::DGRAM, Some(socket2::Protocol::UDP))?;
-            socket.set_recv_buffer_size(8 * 1024 * 1024)?;
+            socket.set_recv_buffer_size(10 * 1024 * 1024)?;
 
             let rtp_socket = match socket.bind(&sock_addr) {
                 Ok(_) => UdpSocket::from(socket),
