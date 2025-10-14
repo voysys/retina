@@ -450,7 +450,7 @@ impl Depacketizer {
                         start_ctx: ctx,
                         timestamp,
                         parameters: Some(VideoParameters {
-                            pixel_dimensions: (width as u32, height as u32),
+                            pixel_dimensions: (width, height),
                             rfc6381_codec: String::new(), // RFC 6381 is not applicable to MJPEG
                             pixel_aspect_ratio: None,
                             frame_rate: None,

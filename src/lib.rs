@@ -454,9 +454,9 @@ impl UdpPair {
     fn for_ip(ip_addr: IpAddr) -> Result<Self, std::io::Error> {
         const MAX_TRIES: usize = 10;
         const ALLOWED_RTP_RANGE: Range<u16> = 5000..65000; // stolen from ffmpeg's defaults.
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         for i in 0..MAX_TRIES {
-            let rtp_port = rng.gen_range(ALLOWED_RTP_RANGE) & !0b1;
+            let rtp_port = rng.random_range(ALLOWED_RTP_RANGE) & !0b1;
             debug_assert!(ALLOWED_RTP_RANGE.contains(&rtp_port));
 
             let rtp_addr = SocketAddr::new(ip_addr, rtp_port);
