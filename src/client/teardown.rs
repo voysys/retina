@@ -27,11 +27,7 @@ pub(super) async fn background_teardown(
     mut tx: tokio::sync::watch::Sender<Option<Result<(), Error>>>,
     expires: tokio::time::Instant,
 ) {
-    log::debug!(
-        "TEARDOWN {} starting for URL {}",
-        &*session_id,
-        base_url.as_str(),
-    );
+    log::debug!("TEARDOWN starting for URL {}", base_url.as_str(),);
     if tokio::time::timeout_at(
         expires,
         teardown_loop_forever(
@@ -48,22 +44,15 @@ pub(super) async fn background_teardown(
     .await
     .is_err()
     {
-        log::debug!("TEARDOWN {} aborted on session expiration", &*session_id);
+        log::debug!("TEARDOWN aborted on session expiration");
     }
     if let Some(ref session_group) = options.session_group {
         let seqnum = seqnum.expect("seqnum specified when session_group exists");
-        log::trace!(
-            "Clearing session {:?}/{} for id {:?}",
-            session_group.debug_id(),
-            seqnum,
-            &*session_id
-        );
         if !session_group.try_remove_seqnum(seqnum) {
             log::warn!(
-                "Unable to find session {:?}/{} for id {:?} on TEARDOWN",
+                "Unable to find session {:?}/{} on TEARDOWN",
                 session_group.debug_id(),
                 seqnum,
-                &*session_id
             );
         }
     }
@@ -100,7 +89,7 @@ pub(super) async fn teardown_loop_forever(
             r = attempt(&mut req, tool.as_ref(), options, &mut requested_auth, conn) => {
                 match r {
                     Ok(status) => {
-                        log::debug!("TEARDOWN {} on existing conn succeeded (status {}).", session_id, u16::from(status));
+                        log::debug!("TEARDOWN on existing conn succeeded (status {}).", u16::from(status));
                         return
                     },
                     Err(e) => {
@@ -121,11 +110,11 @@ pub(super) async fn teardown_loop_forever(
                         // Also, don't update tx, so await_teardown() won't
                         // fail early. Let's at least do an attempt with a fresh
                         // connection first.
-                        log::debug!("TEARDOWN {} on existing conn failed: {}", session_id, &e);
+                        log::debug!("TEARDOWN on existing conn failed: {}", &e);
                     },
                 }
             },
-            _ = &mut attempt_deadline => log::debug!("TEARDOWN {} on existing conn timed out", session_id),
+            _ = &mut attempt_deadline => log::debug!("TEARDOWN on existing conn timed out"),
         }
     };
 
@@ -133,10 +122,7 @@ pub(super) async fn teardown_loop_forever(
         // TCP, auto teardown, server not known to be affected by the live555
         // TCP session bug, tried one TEARDOWN on the existingconn if any (just in case the server
         // really does have that bug), closed the connection. Good enough.
-        log::debug!(
-            "Giving up on TEARDOWN {}; use TearDownPolicy::Always to try harder",
-            session_id
-        );
+        log::debug!("Giving up on TEARDOWN; use TearDownPolicy::Always to try harder");
         return;
     }
 
@@ -156,11 +142,11 @@ pub(super) async fn teardown_loop_forever(
             r = attempt => {
                 match r {
                     Ok(status) => {
-                        log::debug!("TEARDOWN {} fresh connection attempt {} succeeded (status {}).", session_id, attempt_num, u16::from(status));
+                        log::debug!("TEARDOWN fresh connection attempt {} succeeded (status {}).", attempt_num, u16::from(status));
                         return
                     },
                     Err(e) => {
-                        log::debug!("TEARDOWN {} fresh connection attempt {} failed: {}", session_id, attempt_num, &e);
+                        log::debug!("TEARDOWN fresh connection attempt {} failed: {}", attempt_num, &e);
                         let _ = tx.send(Some(Err(e)));
 
                         // Wait out the remaining time before trying again, to
@@ -170,7 +156,7 @@ pub(super) async fn teardown_loop_forever(
                 }
             },
             _ = &mut attempt_deadline => {
-                log::debug!("TEARDOWN {} fresh connection attempt {} timed out", session_id, attempt_num);
+                log::debug!("TEARDOWN fresh connection attempt {} timed out", attempt_num);
                 let _ = tx.send(Some(Err(wrap!(ErrorInt::Timeout))));
             },
         }
